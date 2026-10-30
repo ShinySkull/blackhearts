@@ -300,6 +300,16 @@ footer .closing { font-style: italic; color: var(--ink-soft); }
 .reading strong { color: var(--parchment); }
 .reading ul { padding-left: 1.3em; }
 .reading li { margin-bottom: 6px; }
+.reading .at-the-table {
+  margin: 32px 0 0;
+  padding: 6px 24px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blood);
+  border-radius: var(--radius);
+}
+.reading .at-the-table h2 { margin-top: 18px; }
+.reading .at-the-table p { margin: 0 0 12px; }
 .reading .source { margin-top: 40px; font-size: 0.95rem; color: var(--ink-faint); }
 
 @media (max-width: 640px) {
