@@ -317,6 +317,31 @@ check('ranger: prepare, use with slots, Focus switches, upcast, Long Rest', asyn
   if (!(await panel()).includes('No Art held in Focus')) throw new Error('Long Rest should end Focus');
 });
 
+// ---------- Saved data ----------
+
+check('saved data: corrupt or older saves still load', async (page, base) => {
+  const ctx = await page.context().browser().newContext();
+  const p = await ctx.newPage();
+  const errors = [];
+  p.on('pageerror', e => errors.push(e.message));
+  await p.goto(base + '/tools/');
+  await p.evaluate(() => localStorage.setItem('blackhearts.tools.v1', '{not json'));
+  await p.reload();
+  if (await p.$eval('#bh-char-select', s => s.options.length) !== 1) throw new Error('corrupt save should start fresh');
+  // A save from before the later tabs existed: only name and character data.
+  await p.evaluate(() => localStorage.setItem('blackhearts.tools.v1', JSON.stringify({
+    version: 1, order: ['old'], activeId: 'old', tab: 'ranger',
+    characters: { old: { id: 'old', name: 'Old Save', character: { cls: 'Ranger', level: 3, xp: 900 } } }
+  })));
+  await p.reload();
+  for (const t of ['Character', 'Combat', 'Gear', 'Crafting', 'Ranger Arts']) await p.click(`#tool-tabs [role=tab]:has-text("${t}")`);
+  if (await p.$eval('#bh-char-select', s => s.selectedOptions[0].textContent) !== 'Old Save') throw new Error('old save lost its name');
+  await p.click('#tool-tabs [role=tab]:has-text("Character")');
+  if (await p.inputValue('#f-character-level') !== '3') throw new Error('old save lost its level');
+  await ctx.close();
+  if (errors.length) throw new Error(errors.join('; '));
+});
+
 // ---------- run ----------
 
 (async () => {
