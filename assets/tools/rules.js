@@ -325,6 +325,71 @@
     return { allowed: true, loss: null, gradesAbove: diff, note: diff + ' grade' + (diff > 1 ? 's' : '') + ' above the item: a chance of no loss at all, better with each grade. The DM rolls it.' };
   };
 
+  // ---------- The Ranger Arts ----------
+  // Arts replace Ranger spells but keep the 2024 Ranger's slots, prepared count,
+  // and each source spell's action, range, duration and scaling.
+  // "focus" marks Arts whose source spell needs Concentration (called Focus).
+
+  R.RANGER_ARTS = [
+    { rank: 1, name: 'Perimeter Watch', basedOn: 'Alarm', looks: 'Set subtle warning lines and alarms around a camp.', rule: 'Takes 10 minutes to install; a physical alarm, not a telepathic message.' },
+    { rank: 1, name: 'Beast Tamer', basedOn: 'Animal Friendship', looks: 'Calm a beast through scent, posture, and practiced signals.' },
+    { rank: 1, name: 'Field Medicine', basedOn: 'Cure Wounds', looks: 'Treat wounds with a healer’s kit and expert care.', rule: 'Needs touch and one use of a healer’s kit; cannot treat Constructs or Undead.' },
+    { rank: 1, name: 'Toxicologist', basedOn: 'Detect Poison and Disease', looks: 'Identify poison or illness through close examination.', focus: true },
+    { rank: 1, name: 'Binding Strike', basedOn: 'Ensnaring Strike', looks: 'Trap a target with a snare or specialized projectile.', rule: 'Needs a weapon or trap implement.', focus: true },
+    { rank: 1, name: 'Scattershot', basedOn: 'Hail of Thorns', looks: 'Strike nearby foes with a prepared scattering projectile.', rule: 'Needs a ranged weapon and prepared ammunition.' },
+    { rank: 1, name: 'Predator’s Focus', basedOn: 'Hunter’s Mark', looks: 'Read and exploit a quarry’s weaknesses.', focus: true, favored: true },
+    { rank: 1, name: 'Explosive Leap', basedOn: 'Jump', looks: 'Perform a near-impossible athletic leap.' },
+    { rank: 1, name: 'Endurance Training', basedOn: 'Longstrider', looks: 'Move with tireless, economical strides.' },
+    { rank: 1, name: 'Beast Whisperer', basedOn: 'Speak with Animals', looks: 'Exchange meaning through uncanny animal understanding.', rule: 'Does not make animals speak human languages.' },
+    { rank: 2, name: 'Battle Hardened', basedOn: 'Aid', looks: 'Prepare companions to withstand greater punishment.', rule: 'Needs communication with its recipients.' },
+    { rank: 2, name: 'Beast Courier', basedOn: 'Animal Messenger', looks: 'Direct a real animal to carry a simple message.', rule: 'Needs an available animal and a reachable destination.' },
+    { rank: 2, name: 'Beast Bond', basedOn: 'Beast Sense', looks: 'Share the senses of a bonded animal.', rule: 'Only with an animal bonded during a Long Rest.', focus: true },
+    { rank: 2, name: 'Night Eyes', basedOn: 'Darkvision', looks: 'See in darkness through uncanny sensory adaptation.' },
+    { rank: 2, name: 'Peak Conditioning', basedOn: 'Enhance Ability', looks: 'Enter a state of exceptional physical or mental performance.', focus: true },
+    { rank: 2, name: 'Danger Sense', basedOn: 'Find Traps', looks: 'Notice subtle evidence of concealed hazards.', rule: 'Needs plausible clues; cannot see through walls.' },
+    { rank: 2, name: 'Wilderness Medicine', basedOn: 'Lesser Restoration', looks: 'Treat poison and select mundane ailments.', rule: 'Needs a healer’s kit; does not remove curses, magical paralysis, or supernatural disease.' },
+    { rank: 2, name: 'Master Tracker', basedOn: 'Locate Animals or Plants', looks: 'Find wildlife or plants by reading their signs.', rule: 'Needs signs in the environment.' },
+    { rank: 2, name: 'Ghostwalk', basedOn: 'Pass without Trace', looks: 'Guide allies through concealment without leaving signs.', rule: 'You must guide companions within 30 feet.', focus: true },
+    { rank: 2, name: 'Antitoxin Expertise', basedOn: 'Protection from Poison', looks: 'Use prepared remedies to counter toxins.' },
+    { rank: 2, name: 'Killing Ground', basedOn: 'Spike Growth', looks: 'Prepare hidden stakes, caltrops, and snares.', rule: 'Takes 1 minute to prepare and a suitable surface; the hazards stay until cleared.', focus: true },
+    { rank: 3, name: 'Arrowstorm', basedOn: 'Conjure Barrage', looks: 'Fire a devastating spread of prepared missiles.', rule: 'Needs a ranged weapon and ammunition; cannot hit targets behind total cover.' },
+    { rank: 3, name: 'Untraceable', basedOn: 'Nondetection', looks: 'Erase tracks, scent, and identifying traces.', rule: 'Instead of the spell’s protection: Advantage on checks to avoid mundane tracking. Does not stop divination.' },
+    { rank: 3, name: 'Elemental Conditioning', basedOn: 'Protection from Energy', looks: 'Prepare against acid, cold, or fire with equipment and treatments.', rule: 'Resistance to Acid, Cold or Fire only; needs appropriate preparations.', focus: true }
+  ];
+
+  R.ARTS_NOT_AVAILABLE = {
+    1: ['Detect Magic', 'Entangle', 'Fog Cloud', 'Goodberry'],
+    2: ['Barkskin', 'Cordon of Arrows', 'Gust of Wind', 'Locate Object', 'Magic Weapon', 'Silence', 'Summon Beast'],
+    3: ['Conjure Animals', 'Daylight', 'Dispel Magic', 'Elemental Weapon', 'Lightning Arrow', 'Meld into Stone', 'Plant Growth', 'Revivify', 'Speak with Plants', 'Summon Fey', 'Water Breathing', 'Water Walk', 'Wind Wall']
+  };
+
+  // 2024 Ranger table. Index = level - 1.
+  R.RANGER_SLOTS = [
+    [2], [2], [3], [3], [4, 2], [4, 2], [4, 3], [4, 3], [4, 3, 2], [4, 3, 2],
+    [4, 3, 3], [4, 3, 3], [4, 3, 3, 1], [4, 3, 3, 1], [4, 3, 3, 2], [4, 3, 3, 2],
+    [4, 3, 3, 3, 1], [4, 3, 3, 3, 1], [4, 3, 3, 3, 2], [4, 3, 3, 3, 2]
+  ];
+  R.RANGER_PREPARED = [2, 3, 4, 5, 6, 6, 7, 7, 9, 9, 10, 10, 11, 11, 12, 12, 14, 14, 15, 15];
+  // Favored Enemy: free uses of Hunter's Mark (Predator's Focus) per Long Rest.
+  R.RANGER_FAVORED_USES = [2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6];
+
+  R.rangerSlots = function (level, rank) {
+    var row = R.RANGER_SLOTS[Math.max(1, Math.min(20, level)) - 1];
+    return row[rank - 1] || 0;
+  };
+  R.rangerTable = function (level) {
+    var i = Math.max(1, Math.min(20, Math.floor(level) || 1)) - 1;
+    return { prepared: R.RANGER_PREPARED[i], favored: R.RANGER_FAVORED_USES[i], slots: R.RANGER_SLOTS[i].slice() };
+  };
+
+  /** Lowest slot rank at or above `minRank` with one left, or 0 if none. */
+  R.lowestOpenSlot = function (maxByRank, usedByRank, minRank) {
+    for (var r = minRank; r <= 5; r++) {
+      if ((maxByRank[r] || 0) - (usedByRank[r] || 0) > 0) return r;
+    }
+    return 0;
+  };
+
   if (typeof module === 'object' && module.exports) module.exports = R;
   else { root.BH = root.BH || {}; root.BH.rules = R; }
 })(typeof window !== 'undefined' ? window : globalThis);

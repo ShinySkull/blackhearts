@@ -228,7 +228,7 @@
   color: var(--ink-faint);
   font-weight: 500;
 }
-.tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tbl input { max-width: 6em; }
 .tbl tr.hit td { background: #241513; }
 
@@ -255,6 +255,19 @@
 .topbar nav a[aria-current="page"] { color: var(--parchment); }
 
 @media (max-width: 640px) {
+  /* Stacked tables: each row becomes a small card (ready box, name, buttons; text below). */
+  .tbl.stack thead { display: none; }
+  .tbl.stack tr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 4px 10px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .tbl.stack td { border: 0; padding: 0; }
+  .tbl.stack td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+  .tbl.stack td:nth-child(4) { grid-column: 3; grid-row: 1; }
   .tools { padding-top: 28px; }
   .tool-card { padding: 14px 14px 16px; }
   .charbar .btns { width: 100%; }

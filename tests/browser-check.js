@@ -289,6 +289,34 @@ check('crafting: a ceiling holds the grade, modifiers can be added and removed',
   if (await page.inputValue('#f-find-q-0') !== 'Masterwork') throw new Error('find quality not saved');
 });
 
+// ---------- Ranger Arts tab ----------
+
+check('ranger: prepare, use with slots, Focus switches, upcast, Long Rest', async (page) => {
+  await openTab(page, 'Character');
+  await page.selectOption('#f-character-cls', 'Ranger');
+  await setField(page, '#f-character-level', 5);
+  await openTab(page, 'Ranger Arts');
+  const panel = () => text(page, '#tool-panel');
+  if (!(await panel()).includes('0 / 6')) throw new Error('level 5 Ranger should prepare 6');
+  await page.check('[data-art="Binding Strike"]');
+  await page.check('[data-art="Field Medicine"]');
+  if (!(await panel()).includes('2 / 6')) throw new Error('two Arts should be prepared');
+  if (!(await page.isDisabled('[data-art="Arrowstorm"]'))) throw new Error('rank 3 should be locked at level 5');
+  await page.click('[data-action="ranger.use"][data-art="Binding Strike"]');
+  if (await page.getAttribute('[aria-label^="Rank 1 slots left"]', 'aria-label') !== 'Rank 1 slots left: 3 of 4') throw new Error('rank 1 slot not spent');
+  if (!(await panel()).includes('Focusing on Binding Strike')) throw new Error('Binding Strike should be in Focus');
+  await page.click('[data-action="ranger.useFavored"]');
+  const p = await panel();
+  if (!p.includes('Focusing on Predator’s Focus') || !p.includes('Focus on Binding Strike ends')) throw new Error('Focus did not switch');
+  await page.selectOption('#f-ranger-spend', '2');
+  await page.click('[data-action="ranger.use"][data-art="Field Medicine"]');
+  if (await page.getAttribute('[aria-label^="Rank 2 slots left"]', 'aria-label') !== 'Rank 2 slots left: 1 of 2') throw new Error('rank 2 slot not spent');
+  if (!(await panel()).includes('(upcast)')) throw new Error('upcast not noted');
+  await page.click('[data-action="ranger.longRest"]');
+  if (await page.getAttribute('[aria-label^="Rank 2 slots left"]', 'aria-label') !== 'Rank 2 slots left: 2 of 2') throw new Error('Long Rest did not restore');
+  if (!(await panel()).includes('No Art held in Focus')) throw new Error('Long Rest should end Focus');
+});
+
 // ---------- run ----------
 
 (async () => {

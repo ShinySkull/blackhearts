@@ -115,3 +115,16 @@ test('crafting: the specialised shortsword, 40 + 40% = 80%, is Good', () => {
   const capped = R.craftingResult(70, mods, 'Masterwork');
   assert.deepEqual([capped.rolledGrade, capped.grade, capped.capped], ['Incredible', 'Masterwork', true]);
 });
+
+test('ranger arts: every rank has its Arts and the 2024 Ranger table lines up', () => {
+  const byRank = r => R.RANGER_ARTS.filter(a => a.rank === r).length;
+  assert.deepEqual([byRank(1), byRank(2), byRank(3)], [10, 11, 3]);
+  assert.equal(R.RANGER_ARTS.filter(a => a.favored).length, 1);
+  assert.deepEqual(R.rangerTable(1), { prepared: 2, favored: 2, slots: [2] });
+  assert.deepEqual(R.rangerTable(5).slots, [4, 2]);
+  assert.deepEqual(R.rangerTable(9).slots, [4, 3, 2]);
+  for (const t of [R.RANGER_SLOTS, R.RANGER_PREPARED, R.RANGER_FAVORED_USES]) assert.equal(t.length, 20);
+  // Uses the lowest open slot at or above the Art's rank.
+  assert.equal(R.lowestOpenSlot({ 1: 4, 2: 2 }, { 1: 4 }, 1), 2);
+  assert.equal(R.lowestOpenSlot({ 1: 4, 2: 2 }, { 1: 4, 2: 2 }, 1), 0);
+});
