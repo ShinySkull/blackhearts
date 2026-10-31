@@ -86,6 +86,102 @@ check('characters: add, switch, delete and undo', async (page) => {
   await page.selectOption('#bh-char-select', { label: 'Bowyer Campbell' });
 });
 
+// ---------- Combat tab ----------
+
+const combatText = page => text(page, '#tool-panel');
+
+check('combat: damage into death throes, counters, stabilise and heal out', async (page) => {
+  await openTab(page, 'Combat');
+  await setField(page, '#f-combat-maxHp', 50);
+  await setField(page, '#f-combat-hp', 6);
+  await page.fill('#hp-amount', '6');
+  await page.click('[data-action="combat.damage"]');
+  if (!(await combatText(page)).includes('Unconscious')) throw new Error('exactly 0 HP should be unconscious');
+  await page.fill('#hp-amount', '3');
+  await page.click('[data-action="combat.damage"]');
+  if (!(await combatText(page)).includes('Death throes')) throw new Error('below 0 should be death throes');
+  await page.click('[data-action="combat.turnCounter"]');
+  await page.fill('#hp-amount', '1');
+  await page.click('[data-action="combat.damage"]'); // damage while in throes = another counter
+  const pips = await page.getAttribute('.pips[aria-label^="Death counters"]', 'aria-label');
+  if (pips !== 'Death counters: 2 of 4') throw new Error('expected 2 death counters, saw ' + pips);
+  await page.click('[data-action="combat.stabilize"]');
+  if (!(await combatText(page)).includes('Stable')) throw new Error('not stable');
+  await page.fill('#hp-amount', '20');
+  await page.click('[data-action="combat.heal"]');
+  if (await page.inputValue('#f-combat-hp') !== '16') throw new Error('heal from -4 by 20 should give 16');
+});
+
+check('combat: bleeding rolls Nd4 and comes off HP', async (page) => {
+  await openTab(page, 'Combat');
+  await page.click('[data-action="combat.bleedUp"]');
+  await page.click('[data-action="combat.bleedUp"]');
+  const before = Number(await page.inputValue('#f-combat-hp'));
+  await page.click('[data-action="combat.bleedRoll"]');
+  const lost = before - Number(await page.inputValue('#f-combat-hp'));
+  if (lost < 2 || lost > 8) throw new Error('2d4 bleeding took ' + lost);
+  await page.click('[data-action="combat.bleedStop"]');
+});
+
+check('combat: called shot reaches the head threshold (10 at 50 max HP)', async (page) => {
+  await openTab(page, 'Combat');
+  const row = page.locator('tr', { has: page.locator('th:text-is("Head")') });
+  if ((await row.locator('td').first().innerText()).trim() !== '10') throw new Error('head threshold should be 10');
+  await page.fill('#reg-add-head', '10');
+  await page.click('[data-action="combat.regionHit"][data-region="head"]');
+  if (!(await combatText(page)).includes('Head reached its injury threshold')) throw new Error('no injury notice');
+  await page.selectOption('#inj-region', 'head');
+  await page.fill('#inj-text', 'Concussion');
+  await page.click('[data-action="combat.addInjury"]');
+  if (!(await combatText(page)).includes('Concussion')) throw new Error('injury not listed');
+});
+
+check('combat: three drops to 0 in a week is fatal exhaustion; a new week resets the count', async (page) => {
+  await openTab(page, 'Combat');
+  await page.click('[data-action="combat.knockdown"]');
+  await page.click('[data-action="combat.nextDay"]');
+  await page.click('[data-action="combat.knockdown"]');
+  if (!(await combatText(page)).includes('Another drop to 0 HP within the week would be fatal')) throw new Error('no warning at 3 exhaustion');
+  await page.click('#bh-undo');
+  for (let i = 0; i < 7; i++) await page.click('[data-action="combat.nextDay"]');
+  await page.click('[data-action="combat.knockdown"]');
+  const ex = await page.locator('.stat:has(span:text-is("Exhaustion")) b').innerText();
+  if (ex.trim() !== '2 / 6') throw new Error('first drop of a new week should add 1 (expected 2 / 6, got ' + ex + ')');
+});
+
+check('combat: crit severity and a defensive parry', async (page) => {
+  await openTab(page, 'Combat');
+  await setField(page, '#f-combat-crit-base', 9);
+  await page.fill('#crit-d100', '60');
+  await page.click('[data-action="combat.critManual"]');
+  if (!(await combatText(page)).includes('27 damage')) throw new Error('3x 9 should be 27');
+  await page.fill('#crit-d100', '99');
+  await page.click('[data-action="combat.critManual"]');
+  if (!(await combatText(page)).includes('Instant death')) throw new Error('96+ should be instant death');
+  // Dex 17 from the Character tab gives +3. 12 + 3 = 15 does not beat 15.
+  await page.fill('#def-attack', '15');
+  await page.fill('#def-d20', '12');
+  await page.click('[data-action="combat.defend"][data-roll="manual"]');
+  if (!(await combatText(page)).includes('The attack lands')) throw new Error('a tie should hit');
+  await page.fill('#def-attack', '15');
+  await page.fill('#def-d20', '13');
+  await page.click('[data-action="combat.defend"][data-roll="manual"]');
+  if (!(await combatText(page)).includes('Avoided')) throw new Error('16 vs 15 should avoid');
+});
+
+check('combat: attack modifiers add up', async (page) => {
+  await openTab(page, 'Combat');
+  await page.selectOption('#f-combat-atk-called', 'head');
+  await page.selectOption('#f-combat-atk-flank', 'rear');
+  await page.check('#f-combat-atk-swarm');
+  const hit = await page.locator('.stat:has(span:text-is("To hit")) b').innerText();
+  if (hit.trim() !== '+1') throw new Error('-3 head +2 rear +2 swarm should be +1, got ' + hit);
+  await page.selectOption('#f-combat-atk-mode', 'ranged');
+  await setField(page, '#f-combat-atk-feet', 22);
+  const dmg = await page.locator('.stat:has(span:text-is("Damage")) b').innerText();
+  if (dmg.trim() !== '+2') throw new Error('20-29 ft downward should be +2 damage, got ' + dmg);
+});
+
 // ---------- run ----------
 
 (async () => {

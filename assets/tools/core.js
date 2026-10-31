@@ -150,8 +150,8 @@
     return '<div class="stat"><b>' + esc(value) + '</b><span>' + esc(label) + '</span></div>';
   };
 
-  BH.pips = function (filled, total, fatalAt) {
-    var out = '<div class="pips" role="img" aria-label="' + filled + ' of ' + total + '">';
+  BH.pips = function (filled, total, fatalAt, label) {
+    var out = '<div class="pips" role="img" aria-label="' + esc(label ? label + ': ' : '') + filled + ' of ' + total + '">';
     for (var i = 1; i <= total; i++) {
       out += '<span class="pip' + (i <= filled ? ' on' : '') + (i === fatalAt ? ' fatal' : '') + '"></span>';
     }
@@ -385,6 +385,9 @@
       if (el.max !== '' && value > Number(el.max)) value = Number(el.max);
     } else value = el.value;
     BH.update(function (ch) { setPath(ch, path, value); });
+    // Checkboxes and dropdowns change after the click is over, so they can
+    // redraw at once. Text fields wait (see queueRender).
+    if (el.type === 'checkbox' || el.tagName === 'SELECT') render();
   }
 
   function onTabKey(e) {
