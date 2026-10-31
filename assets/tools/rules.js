@@ -149,6 +149,10 @@
         (e.hit > 0 ? '+' : '') + e.hit + ' hit / ' + (e.dmg > 0 ? '+' : '') + e.dmg + ' damage)');
       if (o.intoMelee) notes.push('Firing into melee: ' + R.INTO_MELEE_STRAY_CHANCE + '% chance to hit an unintended target');
     }
+    if (o.weapon && (o.weapon.hit || o.weapon.dmg)) {
+      add(o.weapon.hit, o.weapon.dmg, o.weapon.name + ' (' + (o.weapon.hit > 0 ? '+' : '') + o.weapon.hit + ' hit / ' +
+        (o.weapon.dmg > 0 ? '+' : '') + o.weapon.dmg + ' damage from material and quality)');
+    }
     if (o.miscHit || o.miscDmg) add(o.miscHit || 0, o.miscDmg || 0, 'Other bonuses (weapon, tactics, DM)');
     if (o.surprise) notes.push('Surprise attack: hits automatically for maximum weapon damage. Still roll to see if it is a natural 20 or 1.');
     return { hit: hit, dmg: dmg, notes: notes };
@@ -161,6 +165,148 @@
   };
   /** The defender must beat the attacker's roll; a tie goes to the attacker. */
   R.defenseSucceeds = function (defenseTotal, attackTotal) { return defenseTotal > attackTotal; };
+
+  // ---------- Crafting grades & materials (Crafting, Materials & Equipment) ----------
+
+  R.GRADES = ['Poor', 'Fair', 'Good', 'Masterwork', 'Incredible'];
+  R.gradeIndex = function (g) { return R.GRADES.indexOf(g); };
+
+  // Each quality layer moves maximum durability by these percentage points (additive).
+  R.GRADE_DURABILITY = { Poor: -50, Fair: -25, Good: 0, Masterwork: 25, Incredible: 50 };
+
+  // Hit/damage effect of one quality layer (material quality or craftsmanship).
+  // flex = a +1 (or -1) that goes to hit OR damage, the owner's choice.
+  R.GRADE_WEAPON = {
+    Poor: { hit: -1, dmg: -1 },
+    Fair: { flex: -1 },
+    Good: {},
+    Masterwork: { flex: 1 },
+    Incredible: { hit: 1, dmg: 1, trait: 'May have additional traits' }
+  };
+
+  R.MATERIALS = {
+    natural: {
+      label: 'Natural: stone, flint, obsidian, bone', grade: 'Poor',
+      weapon: { dieStep: -1 }, ac: null, repairable: false,
+      note: 'Cannot be repaired once damaged.'
+    },
+    copper: { label: 'Copper', grade: 'Poor', weapon: { hit: -1, dieStep: -1 }, ac: -2, repairable: true, note: 'Soft, easily repaired.' },
+    bronze: { label: 'Bronze', grade: 'Fair', weapon: { hit: -1, dmg: -1 }, ac: -1, repairable: true, note: 'Easily repaired.' },
+    iron: { label: 'Iron', grade: 'Good', weapon: {}, ac: 0, repairable: true, note: 'Standard metal, easily repaired.' },
+    steel: { label: 'Steel', grade: 'Masterwork', weapon: { flex: 1 }, ac: 1, repairable: true, note: 'Superior; costly to repair.' },
+    legendary: {
+      label: 'Legendary metal: mithril, orichalcum…', grade: 'Incredible', weapon: { trait: 'Unique material effects, revealed in play' },
+      ac: null, repairable: true, note: 'Properties are discovered in play.'
+    },
+    other: {
+      label: 'Wood, leather, hide or other (DM)', grade: 'Good', weapon: {}, ac: 0, repairable: true,
+      note: 'Nonmetal categories are still to be set by the DM; treated as standard here.'
+    }
+  };
+
+  // The universal percentile scale for materials, equipment and crafting results.
+  R.gradeFromPercent = function (p) {
+    if (p <= 25) return 'Poor';
+    if (p <= 40) return 'Fair';
+    if (p <= 80) return 'Good';     // exactly 80 is Good; Masterwork begins at 81
+    if (p <= 95) return 'Masterwork';
+    return 'Incredible';
+  };
+
+  /**
+   * Weapon hit/damage from material + material quality + craftsmanship.
+   * alloc: { material, quality, craft } each 'hit' or 'dmg', used where a layer offers a choice.
+   */
+  R.weaponBonuses = function (materialKey, quality, craft, alloc) {
+    alloc = alloc || {};
+    var out = { hit: 0, dmg: 0, dieStep: 0, traits: [], choices: [] };
+    function layer(name, label, fx) {
+      out.hit += fx.hit || 0;
+      out.dmg += fx.dmg || 0;
+      out.dieStep += fx.dieStep || 0;
+      if (fx.trait) out.traits.push(label + ': ' + fx.trait);
+      if (fx.flex) {
+        var side = alloc[name] === 'dmg' ? 'dmg' : 'hit';
+        out[side] += fx.flex;
+        out.choices.push({ layer: name, label: label, amount: fx.flex, side: side });
+      }
+    }
+    var mat = R.MATERIALS[materialKey] || R.MATERIALS.iron;
+    layer('material', mat.label.split(':')[0], mat.weapon);
+    layer('quality', 'Material quality', R.GRADE_WEAPON[quality] || {});
+    layer('craft', 'Craftsmanship', R.GRADE_WEAPON[craft] || {});
+    return out;
+  };
+
+  /** Metal armor AC effect from the material. AC cannot fall below 1. */
+  R.armorClass = function (baseAc, materialKey) {
+    var mat = R.MATERIALS[materialKey] || R.MATERIALS.iron;
+    if (mat.ac == null || baseAc == null || baseAc === '') return { ac: null, delta: mat.ac };
+    return { ac: Math.max(1, Number(baseAc) + mat.ac), delta: mat.ac };
+  };
+
+  var DIE_STEPS = ['d4', 'd6', 'd8', 'd10', 'd12'];
+  /** Move a damage die down (negative steps). Below d4 is the DM's call, so returns null. */
+  R.stepDie = function (die, steps) {
+    var m = /^(\d*)(d\d+)$/i.exec(String(die || '').trim());
+    if (!m) return null;
+    var i = DIE_STEPS.indexOf(m[2].toLowerCase());
+    if (i < 0 || i + steps < 0) return null;
+    return (m[1] || '') + DIE_STEPS[Math.min(DIE_STEPS.length - 1, i + steps)];
+  };
+
+  // ---------- Equipment Durability & Wear ----------
+
+  // Baseline durability: Good material, Good craftsmanship, no modifiers.
+  R.EQUIPMENT = [
+    { group: 'Simple melee weapons', kind: 'weapon', items: { Club: 40, Dagger: 35, Greatclub: 70, Handaxe: 55, Javelin: 40, 'Light Hammer': 55, Mace: 65, Quarterstaff: 60, Sickle: 40, Spear: 50 } },
+    { group: 'Martial melee weapons', kind: 'weapon', items: { Battleaxe: 70, Flail: 55, Glaive: 65, Greataxe: 80, Greatsword: 85, Halberd: 70, Lance: 55, Longsword: 65, Maul: 90, Morningstar: 70, Pike: 65, Rapier: 45, Scimitar: 55, Shortsword: 50, Trident: 65, Warhammer: 80, 'War Pick': 70, Whip: 30 } },
+    { group: 'Ranged weapons', kind: 'weapon', items: { Dart: 15, 'Light Crossbow': 50, Shortbow: 40, Sling: 25, Blowgun: 30, 'Hand Crossbow': 40, 'Heavy Crossbow': 70, Longbow: 50, 'Musket (DM permitting)': 65 } },
+    { group: 'Armor', kind: 'armor', items: { Padded: 50, Leather: 65, 'Studded Leather': 75, Hide: 70, 'Chain Shirt': 90, 'Scale Mail': 105, Breastplate: 110, 'Half Plate': 125, 'Ring Mail': 110, 'Chain Mail': 130, Splint: 145, Plate: 160 } },
+    { group: 'Shields & helmets', kind: 'shield', items: { Shield: 80 } },
+    { group: 'Shields & helmets', kind: 'helmet', items: { 'Helmet (40–75)': 60 } }
+  ];
+  R.findEquipment = function (name) {
+    for (var i = 0; i < R.EQUIPMENT.length; i++) {
+      var g = R.EQUIPMENT[i];
+      if (Object.prototype.hasOwnProperty.call(g.items, name)) return { name: name, kind: g.kind, base: g.items[name] };
+    }
+    return null;
+  };
+
+  /** Total durability percentage: 100 plus each layer's points, added (not multiplied). */
+  R.durabilityPercent = function (materialKey, quality, craft) {
+    var mat = R.MATERIALS[materialKey] || R.MATERIALS.iron;
+    return 100 + R.GRADE_DURABILITY[mat.grade] + (R.GRADE_DURABILITY[quality] || 0) + (R.GRADE_DURABILITY[craft] || 0);
+  };
+  /**
+   * Maximum durability before repair losses, rounded to the nearest point.
+   * Three Poor layers add up to -50%, which the rules don't cover; the result
+   * is held at 1 so the item exists, and the page asks for a DM ruling.
+   */
+  R.maxDurability = function (base, materialKey, quality, craft) {
+    return Math.max(1, Math.round((base * R.durabilityPercent(materialKey, quality, craft)) / 100));
+  };
+
+  R.WEAR_EVENTS = [
+    { key: 'nat1', label: 'Natural 1 on an attack', count: 1, sides: 4, kinds: ['weapon'] },
+    { key: 'parry', label: 'Parried a critical hit', count: 1, sides: 6, kinds: ['weapon'] },
+    { key: 'armorCrit', label: 'Absorbed a critical hit', count: 1, sides: 6, kinds: ['armor', 'helmet'] },
+    { key: 'shieldCrit', label: 'Blocked a critical hit', count: 1, sides: 8, kinds: ['shield'] }
+  ];
+  R.ENVIRONMENT_DICE = ['1d4', '1d6', '1d8', '2d4', '2d6'];   // severe exposure: 1d4 to 2d6
+
+  /**
+   * Who can repair an item and what it costs in maximum durability.
+   * A repairer may be at most one grade below the item.
+   */
+  R.repairOutcome = function (itemGrade, repairerGrade) {
+    var diff = R.gradeIndex(repairerGrade) - R.gradeIndex(itemGrade);
+    if (diff < -1) return { allowed: false, note: 'A ' + repairerGrade + ' artisan cannot repair a ' + itemGrade + ' item. They must be at most one grade below it.' };
+    if (diff === -1) return { allowed: true, loss: 2, note: 'One grade below the item: −2 maximum durability.' };
+    if (diff === 0) return { allowed: true, loss: 1, note: 'Same grade: −1 maximum durability.' };
+    return { allowed: true, loss: null, gradesAbove: diff, note: diff + ' grade' + (diff > 1 ? 's' : '') + ' above the item: a chance of no loss at all, better with each grade. The DM rolls it.' };
+  };
 
   if (typeof module === 'object' && module.exports) module.exports = R;
   else { root.BH = root.BH || {}; root.BH.rules = R; }

@@ -68,3 +68,41 @@ test('advanced combat: elevation, flanking and swarming stack', () => {
   assert.equal(R.defenseSucceeds(15, 15), false);
   assert.equal(R.defenseSucceeds(16, 15), true);
 });
+
+test('durability: the Masterwork steel longsword is 65 x 175% = 114', () => {
+  assert.equal(R.durabilityPercent('steel', 'Masterwork', 'Masterwork'), 175);
+  assert.equal(R.maxDurability(65, 'steel', 'Masterwork', 'Masterwork'), 114);
+  assert.equal(R.maxDurability(65, 'iron', 'Good', 'Good'), 65);
+  // Copper (Poor) + Poor quality + Poor work = -50%: no rule covers it, so it is held at 1.
+  assert.equal(R.durabilityPercent('copper', 'Poor', 'Poor'), -50);
+  assert.equal(R.maxDurability(160, 'copper', 'Poor', 'Poor'), 1);
+  assert.equal(R.maxDurability(160, 'copper', 'Good', 'Good'), 80);
+});
+
+test('durability: repairs need an artisan no more than one grade below', () => {
+  assert.equal(R.repairOutcome('Good', 'Poor').allowed, false);
+  assert.equal(R.repairOutcome('Good', 'Fair').loss, 2);
+  assert.equal(R.repairOutcome('Good', 'Good').loss, 1);
+  assert.equal(R.repairOutcome('Good', 'Incredible').loss, null);
+  assert.equal(R.repairOutcome('Good', 'Incredible').gradesAbove, 2);
+});
+
+test('crafting grades: 80 is Good, Masterwork starts at 81', () => {
+  assert.deepEqual([1, 25, 26, 40, 41, 80, 81, 95, 96, 140].map(R.gradeFromPercent),
+    ['Poor', 'Poor', 'Fair', 'Fair', 'Good', 'Good', 'Masterwork', 'Masterwork', 'Incredible', 'Incredible']);
+});
+
+test('crafting: three +1 choices on Masterwork steel, split as the owner likes', () => {
+  const b = R.weaponBonuses('steel', 'Masterwork', 'Masterwork', { material: 'hit', quality: 'hit', craft: 'dmg' });
+  assert.deepEqual([b.hit, b.dmg], [2, 1]);
+  assert.equal(b.choices.length, 3);
+  const copper = R.weaponBonuses('copper', 'Good', 'Good');
+  assert.deepEqual([copper.hit, copper.dmg, copper.dieStep], [-1, 0, -1]);
+  const poorBronze = R.weaponBonuses('bronze', 'Poor', 'Good');
+  assert.deepEqual([poorBronze.hit, poorBronze.dmg], [-2, -2]);
+  assert.equal(R.stepDie('d8', -1), 'd6');
+  assert.equal(R.stepDie('2d6', -1), '2d4');
+  assert.equal(R.stepDie('d4', -1), null);
+  assert.deepEqual(R.armorClass(2, 'copper'), { ac: 1, delta: -2 }); // AC cannot fall below 1
+  assert.equal(R.armorClass(16, 'steel').ac, 17);
+});

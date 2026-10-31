@@ -24,7 +24,7 @@
         regions: regions,
         regionHitsHp: true,
         injuries: [],
-        atk: { mode: 'melee', called: 'none', flank: 'none', swarm: false, ground: 'none', feet: 0, dir: 'down', intoMelee: false, surprise: false, miscHit: 0, miscDmg: 0 },
+        atk: { weaponId: '', mode: 'melee', called: 'none', flank: 'none', swarm: false, ground: 'none', feet: 0, dir: 'down', intoMelee: false, surprise: false, miscHit: 0, miscDmg: 0 },
         crit: { kind: 'success', base: 8, last: null },
         defense: { type: 'parry', last: null }
       }
@@ -167,7 +167,9 @@
 
   function cardAttack(ch) {
     var a = ch.combat.atk;
-    var m = R.attackModifiers(a);
+    var weapons = BH.gearWeapons ? BH.gearWeapons(ch) : [];
+    var weapon = weapons.filter(function (w) { return w.id === a.weaponId; })[0];
+    var m = R.attackModifiers(Object.assign({}, a, { weapon: weapon }));
     var out = '<section class="tool-card"><h3>Attack modifiers</h3>' +
       '<p class="hint">Situational bonuses from the advanced rules. They stack: a target can be flanked and swarmed at once.</p>' +
       '<div class="row">' + BH.select('Attack', 'combat.atk.mode', a.mode, [['melee', 'Melee'], ['ranged', 'Ranged']]) +
@@ -178,6 +180,10 @@
     } else {
       out += BH.field('Height difference (ft)', 'combat.atk.feet', a.feet, { type: 'number', min: 0, cls: 'narrow' }) +
         BH.select('Firing', 'combat.atk.dir', a.dir, [['down', 'Downward'], ['up', 'Upward']]) + '</div>';
+    }
+    if (weapons.length) {
+      out += '<div class="row">' + BH.select('Weapon (from Gear)', 'combat.atk.weaponId', a.weaponId || '', [['', 'None / not tracked']].concat(
+        weapons.map(function (w) { return [w.id, w.name + ' (' + BH.signed(w.hit) + ' / ' + BH.signed(w.dmg) + ')' + (w.destroyed ? ', destroyed' : '')]; }))) + '</div>';
     }
     out += '<div class="row">' + BH.field('Other hit bonus', 'combat.atk.miscHit', a.miscHit, { type: 'number', cls: 'narrow' }) +
       BH.field('Other damage bonus', 'combat.atk.miscDmg', a.miscDmg, { type: 'number', cls: 'narrow' }) + '</div>' +

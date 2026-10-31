@@ -182,6 +182,73 @@ check('combat: attack modifiers add up', async (page) => {
   if (dmg.trim() !== '+2') throw new Error('20-29 ft downward should be +2 damage, got ' + dmg);
 });
 
+// ---------- Gear tab ----------
+
+const firstItem = page => page.locator('#tool-panel section[id^="item-"]').first();
+
+check('gear: Masterwork steel longsword has 114 durability and +3 to split', async (page) => {
+  await openTab(page, 'Gear');
+  await page.selectOption('#add-type', 'Longsword');
+  await page.selectOption('#add-material', 'steel');
+  await page.selectOption('#add-quality', 'Masterwork');
+  await page.selectOption('#add-craft', 'Masterwork');
+  await page.fill('#add-name', 'Oathbreaker');
+  await page.click('[data-action="gear.add"]');
+  const card = firstItem(page);
+  if (!(await card.innerText()).includes('114 / 114')) throw new Error('expected 114 / 114');
+  if (!(await card.innerText()).includes('+3 / ±0')) throw new Error('all three +1s should default to hit');
+  await page.selectOption('#f-gear-items-0-alloc-craft', 'dmg');
+  if (!(await firstItem(page).innerText()).includes('+2 / +1')) throw new Error('moving one +1 to damage should give +2 / +1');
+});
+
+check('gear: wear, repair costs max durability, and 0 destroys', async (page) => {
+  await openTab(page, 'Gear');
+  await page.click('[data-action="gear.wear"][data-event="nat1"]');
+  let cur = Number(await page.inputValue('#f-gear-items-0-current'));
+  if (cur < 110 || cur > 113) throw new Error('1d4 wear left ' + cur);
+  // Repairer one grade below the item's Masterwork craftsmanship: -2 max.
+  await page.selectOption('#f-gear-items-0-repairer', 'Good');
+  await page.click('[data-action="gear.repair"]');
+  if (!(await firstItem(page).innerText()).includes('112 / 112')) throw new Error('repair by a lower grade should leave 112 / 112');
+  await page.click('[data-action="gear.wear"][data-event="parry"]');
+  await page.selectOption('#f-gear-items-0-repairer', 'Fair');
+  if (!(await firstItem(page).innerText()).includes('cannot repair')) throw new Error('two grades below should be refused');
+  await page.fill('#wear-' + (await firstItem(page).getAttribute('id')).slice(5), '500');
+  await page.click('[data-action="gear.wearManual"]');
+  if (!(await firstItem(page).locator('.tag.red').count())) throw new Error('item at 0 should be destroyed');
+  await page.click('#bh-undo');
+  if (await firstItem(page).locator('.tag.red').count()) throw new Error('undo should bring it back');
+});
+
+check('gear: copper armor, natural weapons, and the weapon shows up in Combat', async (page) => {
+  await openTab(page, 'Gear');
+  await page.selectOption('#add-type', 'Chain Mail');
+  await page.selectOption('#add-material', 'copper');
+  await page.selectOption('#add-quality', 'Good');
+  await page.selectOption('#add-craft', 'Good');
+  await page.click('[data-action="gear.add"]');
+  const armor = page.locator('#tool-panel section[id^="item-"]').nth(1);
+  if (!(await armor.innerText()).includes('65 / 65')) throw new Error('copper chain mail should be 50% of 130');
+  await setField(page, '#f-gear-items-1-baseAc', 16);
+  if (!(await page.locator('#tool-panel section[id^="item-"]').nth(1).innerText()).includes('14')) throw new Error('copper should be -2 AC');
+  await page.selectOption('#add-type', 'Spear');
+  await page.selectOption('#add-material', 'natural');
+  await page.click('[data-action="gear.add"]');
+  await setField(page, '#f-gear-items-2-die', 'd6');
+  await page.click('[data-action="gear.wear"][data-i="2"][data-event="nat1"]');
+  const spear = await page.locator('#tool-panel section[id^="item-"]').nth(2).innerText();
+  if (!spear.includes('d6 → d4')) throw new Error('natural weapon die should step down');
+  if (!spear.includes('cannot be repaired once damaged')) throw new Error('natural weapon should not be repairable');
+  await openTab(page, 'Combat');
+  await page.selectOption('#f-combat-atk-mode', 'melee');
+  await page.selectOption('#f-combat-atk-called', 'none');
+  await page.selectOption('#f-combat-atk-flank', 'none');
+  await page.uncheck('#f-combat-atk-swarm');
+  await page.selectOption('#f-combat-atk-weaponId', { label: 'Oathbreaker (+2 / +1)' });
+  const hit = await page.locator('.stat:has(span:text-is("To hit")) b').innerText();
+  if (hit.trim() !== '+2') throw new Error('Oathbreaker alone should be +2 to hit, got ' + hit);
+});
+
 // ---------- run ----------
 
 (async () => {
