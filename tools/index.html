@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tools · The Blackhearts</title>
+  <meta name="description" content="Trackers for The Blackhearts house rules: character advancement, injuries and death, gear durability, crafting and Ranger Arts.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="../assets/tools.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../index.html">The <span>Blackhearts</span></a>
+    <nav>
+      <a href="../index.html#lore">Lore</a>
+      <a href="../index.html#mechanics">Mechanics</a>
+      <a href="../index.html#backstories">Backstories</a>
+      <a href="../index.html#map">Map</a>
+      <a href="./" aria-current="page">Tools</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap tools" id="tools">
+  <div class="tools-head">
+    <h1>Tools</h1>
+    <p>Trackers for the house rules that go beyond the core books. Everything you enter is saved in this browser on this device only. Clearing your browser data erases it.</p>
+    <p class="storage-warning" id="storage-warning" hidden>This browser isn't letting the page save (private browsing or blocked site data). The tools still work, but your entries will be gone when you leave.</p>
+  </div>
+
+  <div class="charbar">
+    <label class="field"><span>Character</span><select id="bh-char-select"></select></label>
+    <div class="btns">
+      <button type="button" class="btn" data-action="core.new">New character</button>
+      <button type="button" class="btn danger" data-action="core.delete">Delete</button>
+      <button type="button" class="btn" data-action="core.undo" id="bh-undo" title="Undo the last change">Undo</button>
+    </div>
+  </div>
+
+  <div class="tablist" role="tablist" id="tool-tabs" aria-label="Rules"></div>
+  <div class="panel" role="tabpanel" id="tool-panel" tabindex="-1"></div>
+
+  <noscript><p class="callout bad">The tools need JavaScript turned on.</p></noscript>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="closing">Preparation matters. Reputation matters. Loyalty matters. Above all, survival matters.</p>
+  </div>
+</footer>
+
+<script src="../assets/tools/rules.js"></script>
+<script src="../assets/tools/core.js"></script>
+<script src="../assets/tools/character.js"></script>
+<script>BH.start();</script>
+</body>
+</html>

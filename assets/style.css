@@ -315,8 +315,8 @@ footer .closing { font-style: italic; color: var(--ink-soft); }
 @media (max-width: 640px) {
   body { font-size: 1.05rem; }
   .topbar .wrap { flex-wrap: wrap; gap: 4px 0; padding-top: 10px; padding-bottom: 10px; }
-  .topbar nav { gap: 16px; margin-left: 0; width: 100%; }
-  html { scroll-padding-top: 96px; }
+  .topbar nav { flex-wrap: wrap; gap: 2px 16px; margin-left: 0; width: 100%; }
+  html { scroll-padding-top: 120px; }
   .hero { padding: 64px 0 52px; }
   .shelf-head { flex-direction: column; gap: 4px; }
 }

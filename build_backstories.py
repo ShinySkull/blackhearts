@@ -44,6 +44,7 @@ PAGE = """<!doctype html>
       <a href="../index.html#mechanics">Mechanics</a>
       <a href="../index.html#backstories">Backstories</a>
       <a href="../index.html#map">Map</a>
+      <a href="../tools/">Tools</a>
     </nav>
   </div>
 </header>
