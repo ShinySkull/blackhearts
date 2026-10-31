@@ -255,6 +255,23 @@
     return (m[1] || '') + DIE_STEPS[Math.min(DIE_STEPS.length - 1, i + steps)];
   };
 
+  /**
+   * Crafting result = d100 + material + crafter + miscellaneous modifiers (all in %).
+   * Materials and the crafter's skill can cap the grade (the DM sets the ceiling).
+   */
+  R.craftingResult = function (d100, modifiers, capGrade) {
+    var bonus = (modifiers || []).reduce(function (s, m) { return s + (Number(m.pct) || 0); }, 0);
+    var total = d100 + bonus;
+    var rolledGrade = R.gradeFromPercent(total);
+    var grade = rolledGrade;
+    var capped = false;
+    if (capGrade && R.gradeIndex(capGrade) >= 0 && R.gradeIndex(rolledGrade) > R.gradeIndex(capGrade)) {
+      grade = capGrade;
+      capped = true;
+    }
+    return { d100: d100, bonus: bonus, total: total, rolledGrade: rolledGrade, grade: grade, capped: capped };
+  };
+
   // ---------- Equipment Durability & Wear ----------
 
   // Baseline durability: Good material, Good craftsmanship, no modifiers.

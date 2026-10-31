@@ -22,6 +22,7 @@
   var storageOk = true;
   var renderTimer = null;
   var pointerDown = false;
+  var focusAfterRender = null;
 
   // ---------- helpers ----------
 
@@ -319,8 +320,15 @@
     els.panel.setAttribute('aria-labelledby', 'tab-' + mod.id);
     els.panel.innerHTML = source + mod.render(ch);
     restoreFocus(focus);
+    if (focusAfterRender) {
+      var target = els.root.querySelector(focusAfterRender);
+      focusAfterRender = null;
+      if (target) target.focus();
+    }
   }
   BH.render = render;
+  /** Move focus to `selector` once the next redraw is done (e.g. a newly added row). */
+  BH.focusAfterRender = function (selector) { focusAfterRender = selector; };
 
   // ---------- events ----------
 

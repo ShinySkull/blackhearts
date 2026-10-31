@@ -106,3 +106,12 @@ test('crafting: three +1 choices on Masterwork steel, split as the owner likes',
   assert.deepEqual(R.armorClass(2, 'copper'), { ac: 1, delta: -2 }); // AC cannot fall below 1
   assert.equal(R.armorClass(16, 'steel').ac, 17);
 });
+
+test('crafting: the specialised shortsword, 40 + 40% = 80%, is Good', () => {
+  const mods = [{ label: 'High-quality iron', pct: 10 }, { label: 'Master swordsmith', pct: 25 }, { label: 'Ruby', pct: 5 }];
+  const r = R.craftingResult(40, mods, '');
+  assert.deepEqual([r.bonus, r.total, r.grade], [40, 80, 'Good']);
+  assert.equal(R.craftingResult(41, mods, '').grade, 'Masterwork');
+  const capped = R.craftingResult(70, mods, 'Masterwork');
+  assert.deepEqual([capped.rolledGrade, capped.grade, capped.capped], ['Incredible', 'Masterwork', true]);
+});

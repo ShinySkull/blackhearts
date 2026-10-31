@@ -249,6 +249,46 @@ check('gear: copper armor, natural weapons, and the weapon shows up in Combat', 
   if (hit.trim() !== '+2') throw new Error('Oathbreaker alone should be +2 to hit, got ' + hit);
 });
 
+// ---------- Crafting tab ----------
+
+check('crafting: the shortsword example rolls 40 for Good and goes to Gear', async (page) => {
+  await openTab(page, 'Crafting');
+  await page.click('[data-action="crafting.example"]');
+  if (!(await text(page, '#tool-panel')).includes('+40%')) throw new Error('example modifiers should total +40%');
+  await page.fill('#craft-d100', '40');
+  await page.click('[data-action="crafting.rollManual"]');
+  const result = await page.locator('.result').innerText();
+  if (!result.includes('80%') || !result.includes('Good')) throw new Error('40 + 40 should be 80%, Good: ' + result);
+  await page.click('[data-action="crafting.toGear"]');
+  if (!(await page.isDisabled('[data-action="crafting.toGear"]'))) throw new Error('should only add once');
+  await openTab(page, 'Gear');
+  const card = page.locator('#tool-panel section[id^="item-"]', { hasText: 'Serrated shortsword' });
+  if (!(await card.innerText()).includes('50 / 50')) throw new Error('iron Good/Good shortsword should be 50');
+  if (await card.locator('[data-bind$=".notes"]').inputValue() === '') throw new Error('special design should carry into notes');
+});
+
+check('crafting: a ceiling holds the grade, modifiers can be added and removed', async (page) => {
+  await openTab(page, 'Crafting');
+  await page.click('[data-action="crafting.addMod"]');
+  const focused = await page.evaluate(() => document.activeElement.id);
+  if (focused !== 'f-mod-label-3') throw new Error('new modifier row should take focus, got ' + focused);
+  await page.keyboard.type('Rare powder');
+  await page.press('#f-mod-label-3', 'Tab');
+  await page.waitForTimeout(30);
+  await setField(page, '#f-mod-pct-3', 20);
+  await page.selectOption('#f-crafting-project-cap', 'Masterwork');
+  await page.fill('#craft-d100', '50');
+  await page.click('[data-action="crafting.rollManual"]');
+  const result = await page.locator('.result').innerText();
+  if (!result.includes('110%') || !result.includes('rolled Incredible')) throw new Error('should be capped: ' + result);
+  await page.click('[data-action="crafting.removeMod"][data-i="3"]');
+  if ((await text(page, '#tool-panel')).includes('Rare powder')) throw new Error('remove failed');
+  await page.fill('#find-name', 'Wyvern tooth');
+  await page.click('[data-action="crafting.addFind"]');
+  await page.selectOption('#f-find-q-0', 'Masterwork');
+  if (await page.inputValue('#f-find-q-0') !== 'Masterwork') throw new Error('find quality not saved');
+});
+
 // ---------- run ----------
 
 (async () => {
